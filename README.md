@@ -1,10 +1,9 @@
+
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://livedata-kmeans-randomforestclassifier.streamlit.app/)
 
 ---
 
 # 📊 Live Social Media Post Segmentation with KMeans + Explainability
-
-**🔗 [View Live App on Streamlit Cloud](https://livedata-kmeans-randomforestclassifier.streamlit.app/)**
 
 ---
 
@@ -150,4 +149,3 @@ Despite billions of social posts, marketers struggle to:
 © 2025 Sweety Seelam.  
 This work is proprietary and protected by copyright.  
 No part of this project, app, code, or analysis may be copied, reproduced, distributed, or used for any purpose—commercial or otherwise—without explicit written permission from the author.
----
