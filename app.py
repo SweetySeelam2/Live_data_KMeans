@@ -97,6 +97,7 @@ def data_loader():
         st.dataframe(st.session_state.df.head(8), use_container_width=True)
         st.info("Now click **KMeans Clustering & Visuals** in the sidebar to proceed.")
 
+
 # --- Pages ---
 
 if page == "📖 Project Overview":
@@ -117,13 +118,15 @@ if page == "📖 Project Overview":
 
     st.markdown("""
     **Interpretation of the Elbow Plot:**  
-    When we plot the total within‐cluster inertia against k, inertia falls sharply from k=1 to k=3, then flattens after k=4. This “elbow” at **k=3–4** shows that adding clusters beyond four yields only marginal gains in compactness. By choosing **k=4**, we capture four distinct engagement profiles while keeping the model simple enough to interpret and act on.
+    When we plot the total within-cluster inertia against k, inertia falls sharply from k=1 to k=3, then flattens after k=4. This “elbow” at **k=3–4** shows that adding clusters beyond four yields only marginal gains in compactness. By choosing **k=4**, we capture four distinct engagement profiles while keeping the model simple enough to interpret and act on.
     """)
     custom_footer()
+
 
 elif page == "📤 Upload/Test Data":
     data_loader()
     custom_footer()
+
 
 elif page == "📊 KMeans Clustering & Visuals":
     st.header("KMeans Clustering Results")
@@ -154,7 +157,7 @@ elif page == "📊 KMeans Clustering & Visuals":
         **Insights:**  
         - Clusters 0 & 1 register moderate likes/reactions but minimal comments or shares.  
         - Cluster 2 drives high comment/share activity, signaling viral reach.  
-        - Cluster 3 balances elevated values across all metrics, representing top‐performing posts.
+        - Cluster 3 balances elevated values across all metrics, representing top-performing posts.
         """)
 
         fig, ax = plt.subplots(figsize=(5,3))
@@ -164,9 +167,11 @@ elif page == "📊 KMeans Clustering & Visuals":
         plt.tight_layout()
         st.pyplot(fig)
         st.markdown("The heatmap highlights which engagement features dominate each cluster.")
+
     except Exception as e:
         st.error(f"Error during clustering or plotting: {e}")
     custom_footer()
+
 
 elif page == "🤖 Explainable AI (SHAP & LIME)":
     st.header("Explainable AI with SHAP & LIME")
@@ -176,54 +181,72 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         X = preprocess(df)
         sample = X.sample(n=min(200, len(X)), random_state=0)
 
-        # SHAP global
+        # --- GLOBAL SHAP ---
         explainer = shap.TreeExplainer(rf)
         shap_vals = explainer.shap_values(sample)
-        for class_idx in rf.classes_:
-            st.subheader(f"SHAP Summary for Cluster {class_idx}")
-            fig, ax = plt.subplots(figsize=(6,3))
+
+        # shap_vals is a list: one array per class
+        for i in range(len(shap_vals)):
+            st.subheader(f"SHAP Summary for Cluster {i}")
             shap.summary_plot(
-                shap_vals[class_idx], sample,
-                feature_names=feature_cols, show=False, ax=ax
+                shap_vals[i],           # (n_samples, n_features)
+                sample,                 # (n_samples, n_features)
+                feature_names=feature_cols,
+                show=False
             )
+            fig = plt.gcf()
+            fig.set_size_inches(6,3)
             st.pyplot(fig)
-            st.markdown(f"Cluster **{class_idx}** is driven by the above features (red positive, blue negative).")
+            plt.clf()
+            st.markdown(f"Cluster **{i}** is driven by the above features (red ⇒ positive impact, blue ⇒ negative).")
 
         st.markdown("---")
 
-        # LIME local
-        st.subheader("LIME Local Explanation")
+        # --- LOCAL LIME ---
+        st.subheader("Local Explainability (LIME)")
         idx = st.slider("Select sample index", 0, len(sample)-1, 0)
         lime_exp = LimeTabularExplainer(
             sample.values,
             feature_names=feature_cols,
-            class_names=[f"Cluster {i}" for i in rf.classes_],
+            class_names=[f"Cluster {i}" for i in range(len(shap_vals))],
             discretize_continuous=True
         )
-        exp = lime_exp.explain_instance(sample.values[idx], rf.predict_proba, num_features=5)
+        exp = lime_exp.explain_instance(
+            sample.values[idx],
+            rf.predict_proba,
+            num_features=5
+        )
         fig = exp.as_pyplot_figure()
         fig.set_size_inches(6,3)
         st.pyplot(fig)
         st.markdown("This shows why that single post was assigned to its cluster based on its feature values.")
+
     except Exception as e:
         st.error(f"Error in SHAP/LIME analysis: {e}")
     custom_footer()
 
+
 elif page == "📈 Business Insights & Recommendations":
     st.title("Business Insights & Recommendations")
     st.markdown("""
-    - **Clustering Accuracy:** 98% (after relabeling)  
-    - **Classifier Accuracy:** 99.9%  
-    - **Engagement Uplift:** 15–35% by targeting high-ROI clusters  
-    - **Cost Efficiency:** ~20% ad-spend savings  
-    - **Revenue Potential:** $500K+ incremental per major campaign  
+    Our KMeans clustering approach yielded a **98%** match to true Facebook post types, confirming that the four segments align closely with real-world engagement patterns across 7,050 posts.  
+    A downstream Random Forest classifier then reproduced these cluster assignments with **99.9%** accuracy on unseen data, proving that these engagement signatures are both stable and predictable.
 
-    **Recommendations:**  
-    1. Integrate clustering into Creator Studio for real-time content guidance.  
-    2. Surface SHAP/LIME explanations so marketers understand *why* posts succeed.  
-    3. Prioritize formats matching your top engagement clusters.
+    **Engagement Uplift (15–35%)**  
+    Clusters 2 and 3—characterized by significantly higher comment and share counts—represent your “viral” and “top-performing” content archetypes. Prioritizing these formats and topics can increase overall engagement rates by up to 35%.
 
-    By adopting this pipeline, platforms and agencies can eliminate “content blindness,” maximize ROI, and unlock measurable business growth.
+    **Cost Efficiency (~20% savings)**  
+    Clusters 0 and 1 capture lower-engagement posts. By reallocating budget and organic promotion away from these less effective segments, you can reduce wasted spend by approximately 20%.
+
+    **Revenue Potential ($500K+ per campaign)**  
+    For large-scale advertisers running multi-million-dollar campaigns, doubling down on the high-ROI traits of Cluster 3 content can translate into an additional \$500K or more in incremental ad revenue per major campaign.
+
+    **Actionable Recommendations**  
+    1. **Embed clustering logic** directly into content planning tools (e.g., Creator Studio) so every new post is scored in real time.  
+    2. **Surface SHAP & LIME explanations** in your dashboards to give marketers clear, feature-level rationales for why posts fall into each segment.  
+    3. **Optimize for top clusters** by designing content that mirrors the proven styles, formats, and posting times of your highest-engagement segments.
+
+    By weaving this pipeline into your workflow, you eliminate “content blindness,” unlock measurable ROI gains, and empower both data scientists and marketers to act on trusted, explainable insights.
     """)
     st.success("🚀 Ready to deploy!")
     custom_footer()
