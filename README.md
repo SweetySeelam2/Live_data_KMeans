@@ -125,7 +125,7 @@ Despite billions of social posts, marketers struggle to:
 
 ## 📝 References & Credits
 
-- **Dataset:** CrowdFlower [Facebook Live Posts Dataset](https://data.world/crowdflower/facebook-live-screencasts)
+- **Dataset:** CrowdFlower [Facebook Live Posts Dataset](https://data.world/crowdflower/facebook-live-screencasts/workspace/file?filename=Live+FB+Data+Set.csv)
 - **SHAP:** Lundberg, S.M. et al. “A Unified Approach to Interpreting Model Predictions.” [NIPS 2017](https://proceedings.neurips.cc/paper/2017/hash/8a20a8621978632d76c43dfd28b67767-Abstract.html)
 - **LIME:** Ribeiro, M.T. et al. “Why Should I Trust You?” Explaining the Predictions of Any Classifier. [KDD 2016](https://www.kdd.org/kdd2016/papers/files/rfp0573-ribeiroA.pdf)
 - **Visualization:** Statista, 2025. [Facebook Daily Active Users](https://www.statista.com/statistics/433871/daily-active-facebook-users-worldwide/)
