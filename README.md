@@ -138,15 +138,15 @@ Despite billions of social posts, marketers struggle to:
 
 - **Author:** Sweety Seelam
 - **Portfolio:** [SweetySeelam2.github.io](https://sweetyseelam2.github.io/SweetySeelam.github.io/)
-- **LinkedIn:** [linkedin.com/in/sweetyseelam2](https://linkedin.com/in/sweetyrao670)
+- **LinkedIn:** [linkedin.com/in/sweetyrao670](https://linkedin.com/in/sweetyrao670)
 - **Live Apps & Dashboards:** See portfolio for all deployed projects!
 
 ---
 
 ## 🛡️ Copyright & License
 
----
 #### 📜 Proprietary & All Rights Reserved  
+
 © 2025 Sweety Seelam.  
 This work is proprietary and protected by copyright.  
 No part of this project, app, code, or analysis may be copied, reproduced, distributed, or used for any purpose—commercial or otherwise—without explicit written permission from the author.

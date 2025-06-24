@@ -284,7 +284,7 @@ elif page == "📈 Business Insights & Recommendations":
 elif page == "🛡️ Copyright & License":
     st.header("Copyright & License")
     st.markdown("""
-    ---
+    
     #### 📜 Proprietary & All Rights Reserved
     © 2025 Sweety Seelam.
     This work is proprietary and protected by copyright.
