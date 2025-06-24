@@ -25,7 +25,7 @@ st.markdown("""
 # --- Sidebar: Navigation ---
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to:", [
-    "📖 Project Overview", 
+    "📖 Project Overview",
     "📤 Upload/Test Data",
     "📊 KMeans Clustering & Visuals",
     "🤖 Classifier + SHAP/LIME Explainability",
@@ -36,7 +36,7 @@ page = st.sidebar.radio("Go to:", [
 # --- Custom Footer Function ---
 def custom_footer():
     st.markdown("""
-    <div style="text-align:center; margin-top:32px; color:#888; font-size:1.0rem;">
+    <div style="text-align:center; margin-top:32px; color:#888; font-size:0.92rem;">
     📜 <b>Proprietary & All Rights Reserved</b><br>
     &copy; 2025 Sweety Seelam.
     </div>
@@ -74,7 +74,7 @@ def get_demo_csv():
 # --- Preprocessing (Scaling etc.) ---
 def preprocess(df):
     df = df.copy()
-    # Clean: Drop any columns like 'Column1', 'Column2', etc. if present
+    # Drop any columns like 'Column1', 'Column2', etc.
     df = df.loc[:, ~df.columns.str.match(r'Column\d+')]
     # Label encode status_type if needed
     if 'status_type' in df.columns and not pd.api.types.is_numeric_dtype(df['status_type']):
@@ -161,10 +161,10 @@ if page == "📖 Project Overview":
     """)
     st.markdown("---")
     try:
-        st.image("images/The_Elbow_Point.png", caption="Elbow Plot: Choosing Optimal Clusters", use_container_width=True)
+        st.image("images/The_Elbow_Point.png", caption="Elbow Plot: Choosing Optimal Clusters", width=650)
         st.caption("Elbow method confirms optimal number of clusters.")
     except Exception:
-        st.warning("Elbow plot image not found. Please upload 'The_Elbow_Point.png'.")
+        st.warning("Elbow plot image not found. Please upload 'images/The_Elbow_Point.png'.")
     custom_footer()
 
 # --- Upload/Test Data ---
@@ -182,6 +182,7 @@ elif page == "📊 KMeans Clustering & Visuals":
     try:
         df_scaled = preprocess(df)
         clusters = kmeans.predict(df_scaled)
+        df = df.copy()
         df['cluster'] = clusters
 
         st.subheader("Cluster Sizes")
@@ -284,10 +285,10 @@ elif page == "📈 Business Insights & Recommendations":
 elif page == "🛡️ Copyright & License":
     st.header("Copyright & License")
     st.markdown("""
-    
-    #### 📜 Proprietary & All Rights Reserved
-    © 2025 Sweety Seelam.
-    This work is proprietary and protected by copyright.
+    <div style="text-align:center; color:#888; font-size:0.92rem;">
+    📜 <b>Proprietary & All Rights Reserved</b><br>
+    &copy; 2025 Sweety Seelam.<br>
+    This work is proprietary and protected by copyright.<br>
     No part of this project, app, code, or analysis may be copied, reproduced, distributed, or used for any purpose—commercial or otherwise—without explicit written permission from the author.
-    ---
-    """)
+    </div>
+    """, unsafe_allow_html=True)
