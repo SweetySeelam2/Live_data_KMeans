@@ -24,7 +24,7 @@ def custom_footer():
     </div>
     """, unsafe_allow_html=True)
 
-# --- Sidebar Navigation (now stateful) ---
+# --- Sidebar Navigation ---
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to:", [
     "📖 Project Overview",
@@ -32,7 +32,7 @@ page = st.sidebar.radio("Go to:", [
     "📊 KMeans Clustering & Visuals",
     "🤖 Explainable AI (SHAP & LIME)",
     "📈 Business Insights & Recommendations"
-], key="page")
+])
 
 # --- Feature Columns ---
 feature_cols = [
@@ -95,10 +95,7 @@ def data_loader():
     if 'df' in st.session_state:
         st.success("Data loaded successfully!")
         st.dataframe(st.session_state.df.head(8), use_container_width=True)
-        # **NEW**: Submit button + auto-navigation hint
-        if st.button("Submit & Go to KMeans Clustering"):
-            st.session_state.page = "📊 KMeans Clustering & Visuals"
-            st.experimental_rerun()
+        st.info("Now click **KMeans Clustering & Visuals** in the sidebar to proceed.")
 
 # --- Pages ---
 
@@ -118,10 +115,9 @@ if page == "📖 Project Overview":
     except FileNotFoundError:
         st.warning("Elbow plot not found: upload `images/The_Elbow_Point.png`.")
 
-    # **Interpretation**
     st.markdown("""
     **Interpretation of the Elbow Plot:**  
-    When we plot total within‐cluster inertia against the number of clusters (k), we observe a sharp decline in inertia from k=1 to k=3, followed by a plateau beyond k=4. This “elbow” suggests that three or four clusters capture the majority of variance in engagement patterns, with diminishing returns thereafter. By selecting **k = 4**, we balance cluster compactness with interpretability, ensuring each segment represents a distinct and actionable engagement profile.
+    When we plot the total within‐cluster inertia against k, inertia falls sharply from k=1 to k=3, then flattens after k=4. This “elbow” at **k=3–4** shows that adding clusters beyond four yields only marginal gains in compactness. By choosing **k=4**, we capture four distinct engagement profiles while keeping the model simple enough to interpret and act on.
     """)
     custom_footer()
 
@@ -146,7 +142,6 @@ elif page == "📊 KMeans Clustering & Visuals":
         centers = df2.groupby('cluster')[feature_cols].mean()
         st.dataframe(centers)
 
-        # **Avg Engagement Metrics Bar**
         fig, ax = plt.subplots(figsize=(6,3))
         centers[['num_reactions','num_comments','num_shares','num_likes']].plot(kind='bar', ax=ax)
         ax.set_title("Average Engagement Metrics per Cluster")
@@ -154,14 +149,14 @@ elif page == "📊 KMeans Clustering & Visuals":
         ax.legend(title="Metric", fontsize=8)
         plt.tight_layout()
         st.pyplot(fig)
+
         st.markdown("""
         **Insights:**  
-        Clusters 0 and 1 show moderate likes/reactions but almost no comments or shares.  
-        Cluster 2 exhibits high comment/share activity, indicating viral reach.  
-        Cluster 3 has balanced high values across all metrics, representing top engagement posts.
+        - Clusters 0 & 1 register moderate likes/reactions but minimal comments or shares.  
+        - Cluster 2 drives high comment/share activity, signaling viral reach.  
+        - Cluster 3 balances elevated values across all metrics, representing top‐performing posts.
         """)
 
-        # **Heatmap**
         fig, ax = plt.subplots(figsize=(5,3))
         import seaborn as sns
         sns.heatmap(centers.T, annot=True, cmap="YlOrRd", ax=ax)
@@ -169,7 +164,6 @@ elif page == "📊 KMeans Clustering & Visuals":
         plt.tight_layout()
         st.pyplot(fig)
         st.markdown("The heatmap highlights which engagement features dominate each cluster.")
-
     except Exception as e:
         st.error(f"Error during clustering or plotting: {e}")
     custom_footer()
@@ -178,40 +172,39 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
     st.header("Explainable AI with SHAP & LIME")
     st.markdown("We train a RandomForest to mimic KMeans then explain with SHAP & LIME.")
     df = st.session_state.get('df', load_demo())
-
     try:
         X = preprocess(df)
         sample = X.sample(n=min(200, len(X)), random_state=0)
 
-        # --- SHAP ---
+        # SHAP global
         explainer = shap.TreeExplainer(rf)
         shap_vals = explainer.shap_values(sample)
-        for i in range(len(shap_vals)):
-            st.subheader(f"SHAP Summary for Cluster {i}")
-            shap.summary_plot(shap_vals[i], sample,
-                              feature_names=feature_cols, show=False)
-            fig = plt.gcf(); fig.set_size_inches(6,3)
+        for class_idx in rf.classes_:
+            st.subheader(f"SHAP Summary for Cluster {class_idx}")
+            fig, ax = plt.subplots(figsize=(6,3))
+            shap.summary_plot(
+                shap_vals[class_idx], sample,
+                feature_names=feature_cols, show=False, ax=ax
+            )
             st.pyplot(fig)
-            plt.clf()
-            st.markdown(f"Cluster **{i}** is driven primarily by these features (red=positive impact, blue=negative impact).")
+            st.markdown(f"Cluster **{class_idx}** is driven by the above features (red positive, blue negative).")
 
         st.markdown("---")
 
-        # --- LIME ---
+        # LIME local
         st.subheader("LIME Local Explanation")
         idx = st.slider("Select sample index", 0, len(sample)-1, 0)
         lime_exp = LimeTabularExplainer(
             sample.values,
             feature_names=feature_cols,
-            class_names=[f"Cluster {i}" for i in range(len(shap_vals))],
+            class_names=[f"Cluster {i}" for i in rf.classes_],
             discretize_continuous=True
         )
         exp = lime_exp.explain_instance(sample.values[idx], rf.predict_proba, num_features=5)
         fig = exp.as_pyplot_figure()
         fig.set_size_inches(6,3)
         st.pyplot(fig)
-        st.markdown("This explains why the selected post was assigned to its cluster based on its feature values.")
-
+        st.markdown("This shows why that single post was assigned to its cluster based on its feature values.")
     except Exception as e:
         st.error(f"Error in SHAP/LIME analysis: {e}")
     custom_footer()
@@ -221,14 +214,14 @@ elif page == "📈 Business Insights & Recommendations":
     st.markdown("""
     - **Clustering Accuracy:** 98% (after relabeling)  
     - **Classifier Accuracy:** 99.9%  
-    - **Engagement Uplift:** Targeting high-ROI clusters can boost engagement by 15–35%  
-    - **Cost Efficiency:** Avoiding low-performers can cut ad spend by ~20%  
+    - **Engagement Uplift:** 15–35% by targeting high-ROI clusters  
+    - **Cost Efficiency:** ~20% ad-spend savings  
     - **Revenue Potential:** $500K+ incremental per major campaign  
 
     **Recommendations:**  
     1. Integrate clustering into Creator Studio for real-time content guidance.  
     2. Surface SHAP/LIME explanations so marketers understand *why* posts succeed.  
-    3. Prioritize content formats matching top engagement clusters.
+    3. Prioritize formats matching your top engagement clusters.
 
     By adopting this pipeline, platforms and agencies can eliminate “content blindness,” maximize ROI, and unlock measurable business growth.
     """)
