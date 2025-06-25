@@ -13,6 +13,10 @@ st.set_page_config(
     layout="wide",
 )
 
+# --- Initialize submitted flag ---
+if 'submitted' not in st.session_state:
+    st.session_state['submitted'] = False
+
 # --- Hide Default Footer ---
 st.markdown("""<style>footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
@@ -98,12 +102,10 @@ def data_loader():
     if 'df' in st.session_state:
         st.success("Data loaded successfully!")
         st.dataframe(st.session_state.df.head(8), use_container_width=True)
-        # show submit button only once
-        if not st.session_state.get('submitted', False):
+        if not st.session_state.submitted:
             if st.button("Submit & Go to KMeans Clustering & Visuals"):
                 st.session_state.submitted = True
                 st.success("Data submitted! Now navigate to **📊 KMeans Clustering & Visuals** in the sidebar.")
-    custom_footer()
 
 # --- Pages ---
 if page == "📖 Project Overview":
@@ -130,6 +132,7 @@ if page == "📖 Project Overview":
 
 elif page == "📤 Upload/Test Data":
     data_loader()
+    custom_footer()
 
 elif page == "📊 KMeans Clustering & Visuals":
     if not st.session_state.get('submitted', False):
@@ -146,18 +149,21 @@ elif page == "📊 KMeans Clustering & Visuals":
             # 1) Cluster Sizes via Altair
             st.subheader("Cluster Sizes")
             import altair as alt
-            vc = df2['cluster'].value_counts().sort_index()
-            counts = pd.DataFrame({
-                'cluster': vc.index.astype(str),
-                'post_count': vc.values
-            })
+
+            counts = (
+                df2['cluster']
+                  .value_counts()
+                  .sort_index()
+                  .reset_index(name='count')
+                  .rename(columns={'index':'cluster'})
+            )
             chart = (
                 alt.Chart(counts)
                    .mark_bar()
                    .encode(
                        x=alt.X('cluster:O', title='Cluster'),
-                       y=alt.Y('post_count:Q', title='Number of Posts'),
-                       tooltip=['cluster','post_count']
+                       y=alt.Y('count:Q',   title='Number of Posts'),
+                       tooltip=['cluster','count']
                    )
                    .properties(width='container', height=300)
             )
@@ -169,16 +175,16 @@ elif page == "📊 KMeans Clustering & Visuals":
             centers = df2.groupby('cluster')[feature_cols].mean()
             st.dataframe(centers)
 
-            # 3) Key-metrics bar plot
+            # 3) Key‐metrics bar plot
             fig, ax = plt.subplots(figsize=(6,3))
-            centers[['num_reactions','num_comments','num_shares','num_likes']].plot(
-                kind='bar', ax=ax
-            )
+            centers[['num_reactions','num_comments','num_shares','num_likes']].plot(kind='bar', ax=ax)
             ax.set_title("Average Engagement Metrics per Cluster")
             ax.set_ylabel("Scaled mean")
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=0)
             ax.legend(title="Metric", fontsize=8)
             plt.tight_layout()
             st.pyplot(fig)
+            st.markdown("Here you can compare average reactions, comments, shares, and likes by cluster.")
 
             # 3a) Narrative insights
             st.markdown("""
@@ -186,7 +192,7 @@ elif page == "📊 KMeans Clustering & Visuals":
 Cluster 0 and Cluster 1 both generate a healthy volume of reactions and likes yet attract very few comments or shares, suggesting that these posts prompt quick, passive engagement but rarely spark discussion or virality.  
 In contrast, Cluster 2 exhibits the highest average comments and shares of all groups, clearly marking it as the “viral” segment that most amplifies organic reach and drives audience interaction.  
 Cluster 3 shows consistently elevated levels across reactions, comments, shares, and likes—this cluster represents your truly top-performing content, engaging users in multiple ways and acting as a benchmark for future campaigns.  
-""")
+            """)
 
             # 4) Heatmap
             st.subheader("Feature Heatmap")
@@ -215,7 +221,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         explainer = shap.TreeExplainer(rf)
         shap_values = explainer.shap_values(sample)
 
-        # handle both list-of-arrays and single 3D-array
+        # handle both list-of-arrays and 3D-numpy-array
         if isinstance(shap_values, list):
             for idx, arr in enumerate(shap_values):
                 st.subheader(f"SHAP Summary for Cluster {idx}")
@@ -225,7 +231,6 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
                 plt.clf()
                 st.markdown(f"Cluster **{idx}** is driven primarily by the above features (red = positive, blue = negative).")
         else:
-            # numpy-array of shape (n_samples, n_features, n_classes)
             for class_idx in range(shap_values.shape[2]):
                 st.subheader(f"SHAP Summary for Cluster {class_idx}")
                 fig, ax = plt.subplots(figsize=(6,3))
@@ -253,12 +258,12 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         exp = lime_exp.explain_instance(sample.values[idx], rf.predict_proba, num_features=5)
         fig = exp.as_pyplot_figure()
         fig.set_size_inches(6,3)
+        plt.tight_layout()
         st.pyplot(fig)
         st.markdown("This shows why that single post was assigned to its cluster based on its feature values.")
 
     except Exception as e:
         st.error(f"Error in SHAP/LIME analysis: {e}")
-
     custom_footer()
 
 elif page == "📈 Business Insights & Recommendations":
@@ -273,11 +278,11 @@ elif page == "📈 Business Insights & Recommendations":
     **Cost Efficiency (~20% savings)**  
     Clusters 0 and 1 capture lower‐engagement posts. Shifting budget away from these segments can reduce wasted spend by ~20%.
 
-    **Revenue Potential (500K dollars+ per campaign)**                                                       
+    **Revenue Potential ($500K+ per campaign)**                                                       
     For large‐scale advertisers, doubling down on Cluster 3 traits can yield an extra \$500K+ in incremental ad revenue per major campaign.
 
     **Actionable Recommendations**  
-    1. Embed clustering into Creator Studio for real-time content scoring.  
+    1. Embed clustering into Creator Studio for real‐time content scoring.  
     2. Surface SHAP/LIME explanations in dashboards to show marketers *why* posts succeed.  
     3. Optimize new content to mirror the highest-ROI clusters.
 
