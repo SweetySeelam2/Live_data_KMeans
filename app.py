@@ -6,21 +6,16 @@ import shap
 from lime.lime_tabular import LimeTabularExplainer
 import joblib
 from sklearn.preprocessing import LabelEncoder
+import seaborn as sns
+import altair as alt
 
-# --- App Configuration ---
-st.set_page_config(
-    page_title="FB Live Post Clustering & Explainability App",
-    layout="wide",
-)
+st.set_page_config(page_title="FB Live Post Clustering & Explainability App", layout="wide")
 
-# --- Initialize submitted flag ---
 if 'submitted' not in st.session_state:
     st.session_state['submitted'] = False
 
-# --- Hide Default Footer ---
 st.markdown("""<style>footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-# --- Footer (on every page) ---
 def custom_footer():
     st.markdown("""
     <div style="text-align:center; color:#888; font-size:0.9rem; margin-top:2rem;">
@@ -28,7 +23,6 @@ def custom_footer():
     </div>
     """, unsafe_allow_html=True)
 
-# --- Sidebar Navigation ---
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to:", [
     "📖 Project Overview",
@@ -38,13 +32,11 @@ page = st.sidebar.radio("Go to:", [
     "📈 Business Insights & Recommendations"
 ])
 
-# --- Feature Columns ---
 feature_cols = [
     'status_type','num_reactions','num_comments','num_shares',
     'num_likes','num_loves','num_wows','num_hahas','num_sads','num_angrys'
 ]
 
-# --- Load Pretrained Objects ---
 @st.cache_resource(show_spinner=False)
 def load_objects():
     kmeans = joblib.load("kmeans_model.pkl")
@@ -54,32 +46,27 @@ def load_objects():
 
 kmeans, rf, scaler = load_objects()
 
-# --- Demo Data Loader ---
 @st.cache_data
 def load_demo():
     df = pd.read_csv("Live.dataset_K-means.csv")
-    return df.loc[:, ~df.columns.str.match(r'Column\d+')]
+    return df.loc[:, ~df.columns.str.match(r'Column\\d+')]
 
 def get_demo_csv():
     return load_demo().to_csv(index=False).encode('utf-8')
 
-# --- Preprocess Function ---
 def preprocess(df):
-    df = df.copy().loc[:, ~df.columns.str.match(r'Column\d+')]
+    df = df.copy().loc[:, ~df.columns.str.match(r'Column\\d+')]
     if not pd.api.types.is_numeric_dtype(df['status_type']):
         df['status_type'] = LabelEncoder().fit_transform(df['status_type'].astype(str))
     X_scaled = scaler.transform(df[feature_cols])
     return pd.DataFrame(X_scaled, columns=feature_cols)
 
-# --- Data Uploader / Demo ---
 def data_loader():
     st.header("Upload Your Data or Use Demo Sample")
     st.info("CSV must match the demo’s columns exactly.")
 
     with st.expander("Need a demo CSV?"):
-        st.download_button("Download Demo CSV", get_demo_csv(),
-                           file_name="Live.dataset_K-means.csv",
-                           mime="text/csv")
+        st.download_button("Download Demo CSV", get_demo_csv(), file_name="Live.dataset_K-means.csv", mime="text/csv")
 
     uploaded = st.file_uploader("Upload CSV file", type="csv")
     use_demo = st.button("Use Demo Sample")
@@ -90,7 +77,7 @@ def data_loader():
     elif uploaded:
         try:
             df = pd.read_csv(uploaded)
-            df = df.loc[:, ~df.columns.str.match(r'Column\d+')]
+            df = df.loc[:, ~df.columns.str.match(r'Column\\d+')]
             if set(feature_cols).issubset(df.columns):
                 st.session_state.df = df
                 st.session_state.submitted = False
@@ -107,7 +94,6 @@ def data_loader():
                 st.session_state.submitted = True
                 st.success("Data submitted! Now navigate to **📊 KMeans Clustering & Visuals** in the sidebar.")
 
-# --- Pages ---
 if page == "📖 Project Overview":
     st.title("📊 Live Social Media Post Segmentation with KMeans + Explainability")
     st.markdown("""
@@ -146,10 +132,7 @@ elif page == "📊 KMeans Clustering & Visuals":
             df2 = df.copy()
             df2['cluster'] = clusters
 
-            # 1) Cluster Sizes via Altair
             st.subheader("Cluster Sizes")
-            import altair as alt
-
             counts = (
                 df2['cluster']
                   .value_counts()
@@ -161,8 +144,8 @@ elif page == "📊 KMeans Clustering & Visuals":
                 alt.Chart(counts)
                    .mark_bar()
                    .encode(
-                       x=alt.X('cluster:O', title='Cluster'),
-                       y=alt.Y('count:Q',   title='Number of Posts'),
+                       x=alt.X('cluster:O', title='Cluster', axis=alt.Axis(labelAngle=0)),
+                       y=alt.Y('count:Q', title='Number of Posts'),
                        tooltip=['cluster','count']
                    )
                    .properties(width='container', height=300)
@@ -170,12 +153,10 @@ elif page == "📊 KMeans Clustering & Visuals":
             st.altair_chart(chart, use_container_width=True)
             st.markdown("This chart shows how many posts fall into each engagement cluster.")
 
-            # 2) Cluster Centers table
             st.subheader("Cluster Centers (Means)")
             centers = df2.groupby('cluster')[feature_cols].mean()
             st.dataframe(centers)
 
-            # 3) Key‐metrics bar plot
             fig, ax = plt.subplots(figsize=(6,3))
             centers[['num_reactions','num_comments','num_shares','num_likes']].plot(kind='bar', ax=ax)
             ax.set_title("Average Engagement Metrics per Cluster")
@@ -186,7 +167,6 @@ elif page == "📊 KMeans Clustering & Visuals":
             st.pyplot(fig)
             st.markdown("Here you can compare average reactions, comments, shares, and likes by cluster.")
 
-            # 3a) Narrative insights
             st.markdown("""
 **Insights:**  
 Cluster 0 and Cluster 1 both generate a healthy volume of reactions and likes yet attract very few comments or shares, suggesting that these posts prompt quick, passive engagement but rarely spark discussion or virality.  
@@ -194,10 +174,8 @@ In contrast, Cluster 2 exhibits the highest average comments and shares of all g
 Cluster 3 shows consistently elevated levels across reactions, comments, shares, and likes—this cluster represents your truly top-performing content, engaging users in multiple ways and acting as a benchmark for future campaigns.  
             """)
 
-            # 4) Heatmap
             st.subheader("Feature Heatmap")
             fig, ax = plt.subplots(figsize=(5,3))
-            import seaborn as sns
             sns.heatmap(centers.T, annot=True, cmap="YlOrRd", ax=ax)
             ax.set_title("Feature Means Heatmap")
             plt.tight_layout()
@@ -206,7 +184,6 @@ Cluster 3 shows consistently elevated levels across reactions, comments, shares,
 
         except Exception as e:
             st.error(f"Error during clustering or plotting: {e}")
-
     custom_footer()
 
 elif page == "🤖 Explainable AI (SHAP & LIME)":
@@ -217,11 +194,9 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         X = preprocess(df)
         sample = X.sample(n=min(200, len(X)), random_state=0)
 
-        # SHAP global
         explainer = shap.TreeExplainer(rf)
         shap_values = explainer.shap_values(sample)
 
-        # handle both list-of-arrays and 3D-numpy-array
         if isinstance(shap_values, list):
             for idx, arr in enumerate(shap_values):
                 st.subheader(f"SHAP Summary for Cluster {idx}")
@@ -246,7 +221,6 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
 
         st.markdown("---")
 
-        # LIME local
         st.subheader("Local Explainability (LIME)")
         idx = st.slider("Select sample index", 0, len(sample)-1, 0)
         lime_exp = LimeTabularExplainer(
@@ -278,8 +252,8 @@ elif page == "📈 Business Insights & Recommendations":
     **Cost Efficiency (~20% savings)**  
     Clusters 0 and 1 capture lower‐engagement posts. Shifting budget away from these segments can reduce wasted spend by ~20%.
 
-    **Revenue Potential ($500K+ per campaign)**                                                       
-    For large‐scale advertisers, doubling down on Cluster 3 traits can yield an extra \$500K+ in incremental ad revenue per major campaign.
+    **Revenue Potential ($500K+ per campaign)**                                                        
+    For large‐scale advertisers, doubling down on Cluster 3 traits can yield an extra $500K+ in incremental ad revenue per major campaign.
 
     **Actionable Recommendations**  
     1. Embed clustering into Creator Studio for real‐time content scoring.  
