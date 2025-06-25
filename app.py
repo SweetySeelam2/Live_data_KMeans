@@ -74,19 +74,22 @@ def data_loader():
 
     with st.expander("Need a demo CSV?"):
         st.download_button("Download Demo CSV", get_demo_csv(),
-                           file_name="Live.dataset_K-means.csv", mime="text/csv")
+                           file_name="Live.dataset_K-means.csv",
+                           mime="text/csv")
 
     uploaded = st.file_uploader("Upload CSV file", type="csv")
     use_demo = st.button("Use Demo Sample")
 
     if use_demo:
         st.session_state.df = load_demo()
+        st.session_state.submitted = False
     elif uploaded:
         try:
             df = pd.read_csv(uploaded)
             df = df.loc[:, ~df.columns.str.match(r'Column\d+')]
             if set(feature_cols).issubset(df.columns):
                 st.session_state.df = df
+                st.session_state.submitted = False
             else:
                 st.error("Your file is missing one of: " + ", ".join(feature_cols))
         except Exception as e:
@@ -95,11 +98,14 @@ def data_loader():
     if 'df' in st.session_state:
         st.success("Data loaded successfully!")
         st.dataframe(st.session_state.df.head(8), use_container_width=True)
-        st.info("Now click **KMeans Clustering & Visuals** in the sidebar to proceed.")
-
+        # show submit button only once
+        if not st.session_state.get('submitted', False):
+            if st.button("Submit & Go to KMeans Clustering & Visuals"):
+                st.session_state.submitted = True
+                st.success("Data submitted! Now navigate to **📊 KMeans Clustering & Visuals** in the sidebar.")
+    custom_footer()
 
 # --- Pages ---
-
 if page == "📖 Project Overview":
     st.title("📊 Live Social Media Post Segmentation with KMeans + Explainability")
     st.markdown("""
@@ -115,93 +121,87 @@ if page == "📖 Project Overview":
         st.image("images/The_Elbow_Point.png", caption="Elbow Plot: optimal k≈4", width=500)
     except FileNotFoundError:
         st.warning("Elbow plot not found: upload `images/The_Elbow_Point.png`.")
-
     st.markdown("""
     **Interpretation of the Elbow Plot:**  
-    When we plot the total within-cluster inertia against k, inertia falls sharply from k=1 to k=3, then flattens after k=4. This “elbow” at **k=3–4** shows that adding clusters beyond four yields only marginal gains in compactness. By choosing **k=4**, we capture four distinct engagement profiles while keeping the model simple enough to interpret and act on.
+    When we plot the total within-cluster inertia versus k, inertia plummets from k=1 to k=3 before flattening after k=4.  
+    That “elbow” at **k=3–4** indicates huge gains up to four clusters, then only marginal improvement beyond—so **k=4** best balances cohesion and simplicity for actionable engagement profiles.
     """)
     custom_footer()
 
-
 elif page == "📤 Upload/Test Data":
     data_loader()
-    custom_footer()
-
 
 elif page == "📊 KMeans Clustering & Visuals":
-    st.header("KMeans Clustering Results")
-    df = st.session_state.get('df', load_demo())
-    try:
-        # 1) preprocess & predict
-        X = preprocess(df)
-        clusters = kmeans.predict(X)
-        df2 = df.copy()
-        df2['cluster'] = clusters
+    if not st.session_state.get('submitted', False):
+        st.warning("Please submit your data on the **Upload/Test Data** page first.")
+    else:
+        st.header("KMeans Clustering Results")
+        df = st.session_state.df
+        try:
+            X = preprocess(df)
+            clusters = kmeans.predict(X)
+            df2 = df.copy()
+            df2['cluster'] = clusters
 
-        # 2) Dynamic, static-friendly bar chart with Altair
-        st.subheader("Cluster Sizes")
-        import altair as alt
+            # 1) Cluster Sizes via Altair
+            st.subheader("Cluster Sizes")
+            import altair as alt
+            vc = df2['cluster'].value_counts().sort_index()
+            counts = pd.DataFrame({
+                'cluster': vc.index.astype(str),
+                'count': vc.values
+            })
+            chart = (
+                alt.Chart(counts)
+                   .mark_bar()
+                   .encode(
+                       x=alt.X('cluster:O', title='Cluster'),
+                       y=alt.Y('count:Q', title='Number of Posts'),
+                       tooltip=['cluster','count']
+                   )
+                   .properties(width='container', height=300)
+            )
+            st.altair_chart(chart, use_container_width=True)
+            st.markdown("This chart shows how many posts fall into each engagement cluster.")
 
-        counts = (
-            df2['cluster']
-              .value_counts()
-              .sort_index()
-              .reset_index()
-              .rename(columns={'index':'cluster','cluster':'count'})
-        )
+            # 2) Cluster Centers table
+            st.subheader("Cluster Centers (Means)")
+            centers = df2.groupby('cluster')[feature_cols].mean()
+            st.dataframe(centers)
 
-        chart = (
-            alt.Chart(counts)
-               .mark_bar()
-               .encode(
-                   x=alt.X('cluster:O', title='Cluster'),
-                   y=alt.Y('count:Q',   title='Number of Posts'),
-                   tooltip=['cluster','count']
-               )
-               .properties(width='container', height=300)
-        )
-        st.altair_chart(chart, use_container_width=True)
-        st.markdown("This chart shows how many posts fall into each engagement cluster.")
+            # 3) Key-metrics bar plot
+            fig, ax = plt.subplots(figsize=(6,3))
+            centers[['num_reactions','num_comments','num_shares','num_likes']].plot(
+                kind='bar', ax=ax
+            )
+            ax.set_title("Average Engagement Metrics per Cluster")
+            ax.set_ylabel("Scaled mean")
+            ax.legend(title="Metric", fontsize=8)
+            plt.tight_layout()
+            st.pyplot(fig)
 
-        # 3) Cluster centers table
-        st.subheader("Cluster Centers (Means)")
-        centers = df2.groupby('cluster')[feature_cols].mean()
-        st.dataframe(centers)
-
-        # 4) Bar plot of key engagement metrics
-        fig, ax = plt.subplots(figsize=(6,3))
-        centers[['num_reactions','num_comments','num_shares','num_likes']]\
-            .plot(kind='bar', ax=ax)
-        ax.set_title("Average Engagement Metrics per Cluster")
-        ax.set_ylabel("Scaled mean")
-        ax.legend(title="Metric", fontsize=8)
-        plt.tight_layout()
-        st.pyplot(fig)
-        st.markdown("Here you can compare average reactions, comments, shares, and likes by cluster.")
-
-        # 4a) Narrative Insights
-        st.markdown("""
+            # 3a) Narrative insights
+            st.markdown("""
 **Insights:**  
 Cluster 0 and Cluster 1 both generate a healthy volume of reactions and likes yet attract very few comments or shares, suggesting that these posts prompt quick, passive engagement but rarely spark discussion or virality.  
 In contrast, Cluster 2 exhibits the highest average comments and shares of all groups, clearly marking it as the “viral” segment that most amplifies organic reach and drives audience interaction.  
 Cluster 3 shows consistently elevated levels across reactions, comments, shares, and likes—this cluster represents your truly top-performing content, engaging users in multiple ways and acting as a benchmark for future campaigns.  
-""")
+            """)
 
-        # 5) Heatmap
-        st.subheader("Feature Heatmap")
-        fig, ax = plt.subplots(figsize=(5,3))
-        import seaborn as sns
-        sns.heatmap(centers.T, annot=True, cmap="YlOrRd", ax=ax)
-        ax.set_title("Feature Means Heatmap")
-        plt.tight_layout()
-        st.pyplot(fig)
-        st.markdown("The heatmap highlights which engagement features dominate each cluster.")
+            # 4) Heatmap
+            st.subheader("Feature Heatmap")
+            fig, ax = plt.subplots(figsize=(5,3))
+            import seaborn as sns
+            sns.heatmap(centers.T, annot=True, cmap="YlOrRd", ax=ax)
+            ax.set_title("Feature Means Heatmap")
+            plt.tight_layout()
+            st.pyplot(fig)
+            st.markdown("The heatmap highlights which engagement features dominate each cluster.")
 
-    except Exception as e:
-        st.error(f"Error during clustering or plotting: {e}")
+        except Exception as e:
+            st.error(f"Error during clustering or plotting: {e}")
 
     custom_footer()
-
 
 elif page == "🤖 Explainable AI (SHAP & LIME)":
     st.header("Explainable AI with SHAP & LIME")
@@ -213,42 +213,44 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
 
         # SHAP global
         explainer = shap.TreeExplainer(rf)
-        shap_vals = explainer.shap_values(sample)  # this returns a list of arrays, one per class
+        shap_values = explainer.shap_values(sample)
 
-        # rf.classes_ might be [1,2,3], but shap_vals is indexed 0,1,2
-        for idx, cluster_label in enumerate(rf.classes_):
-            st.subheader(f"SHAP Summary for Cluster {cluster_label}")
-            fig, ax = plt.subplots(figsize=(6,3))
-            # shap_vals[idx] has shape (n_samples, n_features)
-            shap.summary_plot(
-                shap_vals[idx],        # slice the correct class
-                sample,                # DataFrame of same shape (n_samples, n_features)
-                feature_names=feature_cols,
-                show=False
-            )
-            st.pyplot(fig)
-            plt.clf()
-            st.markdown(
-                f"Cluster **{cluster_label}** is driven primarily by the above features "
-                "(red = positive impact, blue = negative)."
-            )
+        # handle both list-of-arrays and single 3D-numpy-array
+        if isinstance(shap_values, list):
+            for idx, arr in enumerate(shap_values):
+                st.subheader(f"SHAP Summary for Cluster {idx}")
+                fig, ax = plt.subplots(figsize=(6,3))
+                shap.summary_plot(arr, sample, feature_names=feature_cols, show=False)
+                st.pyplot(fig)
+                plt.clf()
+                st.markdown(f"Cluster **{idx}** is driven primarily by the above features (red = positive, blue = negative).")
+        else:
+            # numpy-array of shape (n_samples, n_features, n_classes)
+            for class_idx in range(shap_values.shape[2]):
+                st.subheader(f"SHAP Summary for Cluster {class_idx}")
+                fig, ax = plt.subplots(figsize=(6,3))
+                shap.summary_plot(
+                    shap_values[:, :, class_idx],
+                    sample,
+                    feature_names=feature_cols,
+                    show=False
+                )
+                st.pyplot(fig)
+                plt.clf()
+                st.markdown(f"Cluster **{class_idx}** is driven primarily by the above features (red = positive, blue = negative).")
 
         st.markdown("---")
 
-        # --- LOCAL LIME ---
+        # LIME local
         st.subheader("Local Explainability (LIME)")
         idx = st.slider("Select sample index", 0, len(sample)-1, 0)
         lime_exp = LimeTabularExplainer(
             sample.values,
             feature_names=feature_cols,
-            class_names=[f"Cluster {i}" for i in range(len(shap_vals))],
+            class_names=[f"Cluster {i}" for i in range(shap_values.shape[-1])],
             discretize_continuous=True
         )
-        exp = lime_exp.explain_instance(
-            sample.values[idx],
-            rf.predict_proba,
-            num_features=5
-        )
+        exp = lime_exp.explain_instance(sample.values[idx], rf.predict_proba, num_features=5)
         fig = exp.as_pyplot_figure()
         fig.set_size_inches(6,3)
         st.pyplot(fig)
@@ -256,30 +258,30 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
 
     except Exception as e:
         st.error(f"Error in SHAP/LIME analysis: {e}")
-    custom_footer()
 
+    custom_footer()
 
 elif page == "📈 Business Insights & Recommendations":
     st.title("Business Insights & Recommendations")
     st.markdown("""
-    Our KMeans clustering approach yielded a **98%** match to true Facebook post types, confirming that the four segments align closely with real-world engagement patterns across 7,050 posts.  
-    A downstream Random Forest classifier then reproduced these cluster assignments with **99.9%** accuracy on unseen data, proving that these engagement signatures are both stable and predictable.
+    Our KMeans clustering achieved a **98%** match to true Facebook post types, confirming that four engagement segments capture real‐world patterns across 7,050 posts.  
+    A downstream Random Forest then reproduced these assignments with **99.9%** accuracy on unseen data.
 
     **Engagement Uplift (15–35%)**  
-    Clusters 2 and 3—characterized by significantly higher comment and share counts—represent your “viral” and “top-performing” content archetypes. Prioritizing these formats and topics can increase overall engagement rates by up to 35%.
+    Clusters 2 and 3—characterized by significantly higher comment and share counts—represent your “viral” and “top‐performing” content archetypes. Prioritizing these formats can boost engagement by up to 35%.
 
     **Cost Efficiency (~20% savings)**  
-    Clusters 0 and 1 capture lower-engagement posts. By reallocating budget and organic promotion away from these less effective segments, you can reduce wasted spend by approximately 20%.
+    Clusters 0 and 1 capture lower‐engagement posts. Shifting budget away from these segments can reduce wasted spend by ~20%.
 
-    **Revenue Potential (500K dollars+ per campaign)**                                                                                                   
-    For large-scale advertisers running multi-million-dollar campaigns, doubling down on the high-ROI traits of Cluster 3 content can translate into an additional \$500K or more in incremental ad revenue per major campaign.
+    **Revenue Potential ($500K+ per campaign)**  
+    For large‐scale advertisers, doubling down on Cluster 3 traits can yield an extra \$500K+ in incremental ad revenue per major campaign.
 
     **Actionable Recommendations**  
-    1. **Embed clustering logic** directly into content planning tools (e.g., Creator Studio) so every new post is scored in real time.  
-    2. **Surface SHAP & LIME explanations** in your dashboards to give marketers clear, feature-level rationales for why posts fall into each segment.  
-    3. **Optimize for top clusters** by designing content that mirrors the proven styles, formats, and posting times of your highest-engagement segments.
+    1. Embed clustering into Creator Studio for real-time content scoring.  
+    2. Surface SHAP/LIME explanations in dashboards to show marketers *why* posts succeed.  
+    3. Optimize new content to mirror the highest-ROI clusters.
 
-    By weaving this pipeline into your workflow, you eliminate “content blindness,” unlock measurable ROI gains, and empower both data scientists and marketers to act on trusted, explainable insights.
+    By weaving this pipeline into your workflow, you eliminate “content blindness,” maximize ROI, and empower both data scientists and marketers to act on trusted, explainable insights.
     """)
     st.success("🚀 Ready to deploy!")
     custom_footer()
