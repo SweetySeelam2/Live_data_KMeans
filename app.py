@@ -273,7 +273,7 @@ elif page == "📈 Business Insights & Recommendations":
     **Cost Efficiency (~20% savings)**  
     Clusters 0 and 1 capture lower‐engagement posts. Shifting budget away from these segments can reduce wasted spend by ~20%.
 
-    **Revenue Potential ($500K+ per campaign)**  
+    **Revenue Potential (500K dollars+ per campaign)**                                                       
     For large‐scale advertisers, doubling down on Cluster 3 traits can yield an extra \$500K+ in incremental ad revenue per major campaign.
 
     **Actionable Recommendations**  
