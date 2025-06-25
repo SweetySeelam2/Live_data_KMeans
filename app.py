@@ -132,34 +132,63 @@ elif page == "📊 KMeans Clustering & Visuals":
     st.header("KMeans Clustering Results")
     df = st.session_state.get('df', load_demo())
     try:
+        # 1) preprocess & predict
         X = preprocess(df)
         clusters = kmeans.predict(X)
         df2 = df.copy()
         df2['cluster'] = clusters
 
+        # 2) Dynamic, static-friendly bar chart with Altair
         st.subheader("Cluster Sizes")
-        st.bar_chart(df2['cluster'].value_counts())
+        import altair as alt
+
+        counts = (
+            df2['cluster']
+              .value_counts()
+              .sort_index()
+              .reset_index()
+              .rename(columns={'index':'cluster','cluster':'count'})
+        )
+
+        chart = (
+            alt.Chart(counts)
+               .mark_bar()
+               .encode(
+                   x=alt.X('cluster:O', title='Cluster'),
+                   y=alt.Y('count:Q',   title='Number of Posts'),
+                   tooltip=['cluster','count']
+               )
+               .properties(width='container', height=300)
+        )
+        st.altair_chart(chart, use_container_width=True)
         st.markdown("This chart shows how many posts fall into each engagement cluster.")
 
+        # 3) Cluster centers table
         st.subheader("Cluster Centers (Means)")
         centers = df2.groupby('cluster')[feature_cols].mean()
         st.dataframe(centers)
 
+        # 4) Bar plot of key engagement metrics
         fig, ax = plt.subplots(figsize=(6,3))
-        centers[['num_reactions','num_comments','num_shares','num_likes']].plot(kind='bar', ax=ax)
+        centers[['num_reactions','num_comments','num_shares','num_likes']]\
+            .plot(kind='bar', ax=ax)
         ax.set_title("Average Engagement Metrics per Cluster")
         ax.set_ylabel("Scaled mean")
         ax.legend(title="Metric", fontsize=8)
         plt.tight_layout()
         st.pyplot(fig)
+        st.markdown("Here you can compare average reactions, comments, shares, and likes by cluster.")
 
+        # 4a) Narrative Insights
         st.markdown("""
-        **Insights:**  
-        - Clusters 0 & 1 register moderate likes/reactions but minimal comments or shares.  
-        - Cluster 2 drives high comment/share activity, signaling viral reach.  
-        - Cluster 3 balances elevated values across all metrics, representing top-performing posts.
-        """)
+**Insights:**  
+Cluster 0 and Cluster 1 both generate a healthy volume of reactions and likes yet attract very few comments or shares, suggesting that these posts prompt quick, passive engagement but rarely spark discussion or virality.  
+In contrast, Cluster 2 exhibits the highest average comments and shares of all groups, clearly marking it as the “viral” segment that most amplifies organic reach and drives audience interaction.  
+Cluster 3 shows consistently elevated levels across reactions, comments, shares, and likes—this cluster represents your truly top-performing content, engaging users in multiple ways and acting as a benchmark for future campaigns.  
+""")
 
+        # 5) Heatmap
+        st.subheader("Feature Heatmap")
         fig, ax = plt.subplots(figsize=(5,3))
         import seaborn as sns
         sns.heatmap(centers.T, annot=True, cmap="YlOrRd", ax=ax)
@@ -170,6 +199,7 @@ elif page == "📊 KMeans Clustering & Visuals":
 
     except Exception as e:
         st.error(f"Error during clustering or plotting: {e}")
+
     custom_footer()
 
 
@@ -181,24 +211,27 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         X = preprocess(df)
         sample = X.sample(n=min(200, len(X)), random_state=0)
 
-        # --- GLOBAL SHAP ---
+        # SHAP global
         explainer = shap.TreeExplainer(rf)
-        shap_vals = explainer.shap_values(sample)
+        shap_vals = explainer.shap_values(sample)  # this returns a list of arrays, one per class
 
-        # shap_vals is a list: one array per class
-        for i in range(len(shap_vals)):
-            st.subheader(f"SHAP Summary for Cluster {i}")
+        # rf.classes_ might be [1,2,3], but shap_vals is indexed 0,1,2
+        for idx, cluster_label in enumerate(rf.classes_):
+            st.subheader(f"SHAP Summary for Cluster {cluster_label}")
+            fig, ax = plt.subplots(figsize=(6,3))
+            # shap_vals[idx] has shape (n_samples, n_features)
             shap.summary_plot(
-                shap_vals[i],           # (n_samples, n_features)
-                sample,                 # (n_samples, n_features)
+                shap_vals[idx],        # slice the correct class
+                sample,                # DataFrame of same shape (n_samples, n_features)
                 feature_names=feature_cols,
                 show=False
             )
-            fig = plt.gcf()
-            fig.set_size_inches(6,3)
             st.pyplot(fig)
             plt.clf()
-            st.markdown(f"Cluster **{i}** is driven by the above features (red ⇒ positive impact, blue ⇒ negative).")
+            st.markdown(
+                f"Cluster **{cluster_label}** is driven primarily by the above features "
+                "(red = positive impact, blue = negative)."
+            )
 
         st.markdown("---")
 
@@ -238,7 +271,7 @@ elif page == "📈 Business Insights & Recommendations":
     **Cost Efficiency (~20% savings)**  
     Clusters 0 and 1 capture lower-engagement posts. By reallocating budget and organic promotion away from these less effective segments, you can reduce wasted spend by approximately 20%.
 
-    **Revenue Potential ($500K+ per campaign)**  
+    **Revenue Potential (500K dollars+ per campaign)**                                                                                                   
     For large-scale advertisers running multi-million-dollar campaigns, doubling down on the high-ROI traits of Cluster 3 content can translate into an additional \$500K or more in incremental ad revenue per major campaign.
 
     **Actionable Recommendations**  
