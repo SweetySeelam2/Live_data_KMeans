@@ -26,7 +26,7 @@ def custom_footer():
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to:", [
     "📖 Project Overview",
-    "📤 Upload/Test Data",
+    "📄 Upload/Test Data",
     "📊 KMeans Clustering & Visuals",
     "🤖 Explainable AI (SHAP & LIME)",
     "📈 Business Insights & Recommendations"
@@ -116,7 +116,7 @@ if page == "📖 Project Overview":
     """)
     custom_footer()
 
-elif page == "📤 Upload/Test Data":
+elif page == "📄 Upload/Test Data":
     data_loader()
     custom_footer()
 
@@ -252,7 +252,7 @@ elif page == "📈 Business Insights & Recommendations":
     **Cost Efficiency (~20% savings)**  
     Clusters 0 and 1 capture lower‐engagement posts. Shifting budget away from these segments can reduce wasted spend by ~20%.
 
-    **Revenue Potential ($500K+ per campaign)**                                                        
+    **Revenue Potential (500K dollars+ per campaign)**                                                                                   
     For large‐scale advertisers, doubling down on Cluster 3 traits can yield an extra $500K+ in incremental ad revenue per major campaign.
 
     **Actionable Recommendations**  
