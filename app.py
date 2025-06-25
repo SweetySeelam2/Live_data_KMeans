@@ -149,15 +149,15 @@ elif page == "📊 KMeans Clustering & Visuals":
             vc = df2['cluster'].value_counts().sort_index()
             counts = pd.DataFrame({
                 'cluster': vc.index.astype(str),
-                'count': vc.values
+                'post_count': vc.values
             })
             chart = (
                 alt.Chart(counts)
                    .mark_bar()
                    .encode(
                        x=alt.X('cluster:O', title='Cluster'),
-                       y=alt.Y('count:Q', title='Number of Posts'),
-                       tooltip=['cluster','count']
+                       y=alt.Y('post_count:Q', title='Number of Posts'),
+                       tooltip=['cluster','post_count']
                    )
                    .properties(width='container', height=300)
             )
@@ -186,7 +186,7 @@ elif page == "📊 KMeans Clustering & Visuals":
 Cluster 0 and Cluster 1 both generate a healthy volume of reactions and likes yet attract very few comments or shares, suggesting that these posts prompt quick, passive engagement but rarely spark discussion or virality.  
 In contrast, Cluster 2 exhibits the highest average comments and shares of all groups, clearly marking it as the “viral” segment that most amplifies organic reach and drives audience interaction.  
 Cluster 3 shows consistently elevated levels across reactions, comments, shares, and likes—this cluster represents your truly top-performing content, engaging users in multiple ways and acting as a benchmark for future campaigns.  
-            """)
+""")
 
             # 4) Heatmap
             st.subheader("Feature Heatmap")
@@ -215,7 +215,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         explainer = shap.TreeExplainer(rf)
         shap_values = explainer.shap_values(sample)
 
-        # handle both list-of-arrays and single 3D-numpy-array
+        # handle both list-of-arrays and single 3D-array
         if isinstance(shap_values, list):
             for idx, arr in enumerate(shap_values):
                 st.subheader(f"SHAP Summary for Cluster {idx}")
