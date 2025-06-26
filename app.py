@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -187,57 +187,63 @@ Cluster 3 shows consistently elevated levels across reactions, comments, shares,
     custom_footer()
 
 elif page == "🤖 Explainable AI (SHAP & LIME)":
-    st.header("Explainable AI with SHAP & LIME")
-    st.markdown("We train a RandomForest to mimic KMeans then explain with SHAP & LIME.")
-    df = st.session_state.get('df', load_demo())
-    try:
-        X = preprocess(df)
-        sample = X.sample(n=min(200, len(X)), random_state=0)
+    if 'df' not in st.session_state or not st.session_state.get('submitted', False):
+        st.warning("⚠️ Please upload and submit your data on the **Upload/Test Data** page first.")
+    else:
+        st.header("Explainable AI with SHAP & LIME")
+        st.markdown("We train a RandomForest to mimic KMeans then explain with SHAP & LIME.")
+        df = st.session_state['df']
+        try:
+            X = preprocess(df)
+            sample = X.sample(n=min(200, len(X)), random_state=0)
 
-        explainer = shap.TreeExplainer(rf)
-        shap_values = explainer.shap_values(sample)
+            explainer = shap.TreeExplainer(rf)
+            shap_values = explainer.shap_values(sample)
 
-        if isinstance(shap_values, list):
-            for idx, arr in enumerate(shap_values):
-                st.subheader(f"SHAP Summary for Cluster {idx}")
-                fig, ax = plt.subplots(figsize=(6,3))
-                shap.summary_plot(arr, sample, feature_names=feature_cols, show=False)
+            if isinstance(shap_values, list):
+                for idx, arr in enumerate(shap_values):
+                    st.subheader(f"SHAP Summary for Cluster {idx}")
+                    fig, ax = plt.subplots(figsize=(5, 2.2))
+                    shap.summary_plot(arr, sample, feature_names=feature_cols, show=False)
+                    st.pyplot(fig)
+                    plt.clf()
+                    st.markdown(f"Cluster **{idx}** is driven primarily by the above features (red = positive, blue = negative).")
+            else:
+                for class_idx in range(shap_values.shape[2]):
+                    st.subheader(f"SHAP Summary for Cluster {class_idx}")
+                    fig, ax = plt.subplots(figsize=(5, 2.2))
+                    shap.summary_plot(
+                        shap_values[:, :, class_idx],
+                        sample,
+                        feature_names=feature_cols,
+                        show=False
+                    )
+                    st.pyplot(fig)
+                    plt.clf()
+                    st.markdown(f"Cluster **{class_idx}** is driven primarily by the above features (red = positive, blue = negative).")
+
+            st.markdown("---")
+            st.subheader("Local Explainability (LIME)")
+            idx = st.slider("Select sample index", 0, len(sample) - 1, 0)
+            lime_exp = LimeTabularExplainer(
+                sample.values,
+                feature_names=feature_cols,
+                class_names=[f"Cluster {i}" for i in range(shap_values.shape[-1])],
+                discretize_continuous=True
+            )
+            exp = lime_exp.explain_instance(sample.values[idx], rf.predict_proba, num_features=5)
+
+            if exp.as_list():
+                fig = exp.as_pyplot_figure()
+                fig.set_size_inches(5, 2.2)
+                plt.tight_layout()
                 st.pyplot(fig)
-                plt.clf()
-                st.markdown(f"Cluster **{idx}** is driven primarily by the above features (red = positive, blue = negative).")
-        else:
-            for class_idx in range(shap_values.shape[2]):
-                st.subheader(f"SHAP Summary for Cluster {class_idx}")
-                fig, ax = plt.subplots(figsize=(6,3))
-                shap.summary_plot(
-                    shap_values[:, :, class_idx],
-                    sample,
-                    feature_names=feature_cols,
-                    show=False
-                )
-                st.pyplot(fig)
-                plt.clf()
-                st.markdown(f"Cluster **{class_idx}** is driven primarily by the above features (red = positive, blue = negative).")
+                st.markdown("This shows why that single post was assigned to its cluster based on its feature values.")
+            else:
+                st.warning("⚠️ LIME couldn't generate a valid explanation for this sample. Try selecting a different index.")
 
-        st.markdown("---")
-
-        st.subheader("Local Explainability (LIME)")
-        idx = st.slider("Select sample index", 0, len(sample)-1, 0)
-        lime_exp = LimeTabularExplainer(
-            sample.values,
-            feature_names=feature_cols,
-            class_names=[f"Cluster {i}" for i in range(shap_values.shape[-1])],
-            discretize_continuous=True
-        )
-        exp = lime_exp.explain_instance(sample.values[idx], rf.predict_proba, num_features=5)
-        fig = exp.as_pyplot_figure()
-        fig.set_size_inches(6,3)
-        plt.tight_layout()
-        st.pyplot(fig)
-        st.markdown("This shows why that single post was assigned to its cluster based on its feature values.")
-
-    except Exception as e:
-        st.error(f"Error in SHAP/LIME analysis: {e}")
+        except Exception as e:
+            st.error(f"Error in SHAP/LIME analysis: {e}")
     custom_footer()
 
 elif page == "📈 Business Insights & Recommendations":
@@ -252,7 +258,7 @@ elif page == "📈 Business Insights & Recommendations":
     **Cost Efficiency (~20% savings)**  
     Clusters 0 and 1 capture lower‐engagement posts. Shifting budget away from these segments can reduce wasted spend by ~20%.
 
-    **Revenue Potential (500K dollars+ per campaign)**                                                                                   
+    **Revenue Potential (500K dollars+ per campaign)**                                                                                  
     For large‐scale advertisers, doubling down on Cluster 3 traits can yield an extra $500K+ in incremental ad revenue per major campaign.
 
     **Actionable Recommendations**  
