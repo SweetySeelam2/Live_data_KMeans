@@ -116,82 +116,53 @@ if page == "📖 Project Overview":
     """)
     custom_footer()
 
-elif page == "📄 Upload/Test Data":
+# -- Page 2: Upload/Test Data --
+if page == "📄 Upload/Test Data":
     data_loader()
     custom_footer()
 
+# -- Page 3: KMeans Clustering & Visuals --
 elif page == "📊 KMeans Clustering & Visuals":
-    if not st.session_state.get('submitted', False):
-        st.warning("Please submit your data on the **Upload/Test Data** page first.")
+    if 'df' not in st.session_state or not st.session_state.get('submitted', False):
+        st.warning("Please upload and submit your data on the **Upload/Test Data** page first.")
+        custom_footer()
     else:
         st.header("KMeans Clustering Results")
-        df = st.session_state.df
+        df = st.session_state['df']
         try:
             X = preprocess(df)
             clusters = kmeans.predict(X)
             df2 = df.copy()
             df2['cluster'] = clusters
 
+            # Compact, fixed-size cluster bar chart
             st.subheader("Cluster Sizes")
             counts = (
                 df2['cluster']
                   .value_counts()
                   .sort_index()
                   .reset_index(name='count')
-                  .rename(columns={'index':'cluster'})
+                  .rename(columns={'index': 'cluster'})
             )
-            chart = (
-                alt.Chart(counts)
-                   .mark_bar()
-                   .encode(
-                       x=alt.X('cluster:O', title='Cluster', axis=alt.Axis(labelAngle=0)),
-                       y=alt.Y('count:Q', title='Number of Posts'),
-                       tooltip=['cluster','count']
-                   )
-                   .properties(width='container', height=300)
-            )
-            st.altair_chart(chart, use_container_width=True)
-            st.markdown("This chart shows how many posts fall into each engagement cluster.")
-
-            st.subheader("Cluster Centers (Means)")
-            centers = df2.groupby('cluster')[feature_cols].mean()
-            st.dataframe(centers)
-
-            fig, ax = plt.subplots(figsize=(6,3))
-            centers[['num_reactions','num_comments','num_shares','num_likes']].plot(kind='bar', ax=ax)
-            ax.set_title("Average Engagement Metrics per Cluster")
-            ax.set_ylabel("Scaled mean")
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=0)
-            ax.legend(title="Metric", fontsize=8)
-            plt.tight_layout()
+            fig, ax = plt.subplots(figsize=(5, 2.2))
+            ax.bar(counts['cluster'].astype(str), counts['count'], color='skyblue')
+            ax.set_xlabel("Cluster")
+            ax.set_ylabel("Number of Posts")
+            ax.set_title("Number of Posts per Cluster")
             st.pyplot(fig)
-            st.markdown("Here you can compare average reactions, comments, shares, and likes by cluster.")
-
-            st.markdown("""
-**Insights:**  
-Cluster 0 and Cluster 1 both generate a healthy volume of reactions and likes yet attract very few comments or shares, suggesting that these posts prompt quick, passive engagement but rarely spark discussion or virality.  
-In contrast, Cluster 2 exhibits the highest average comments and shares of all groups, clearly marking it as the “viral” segment that most amplifies organic reach and drives audience interaction.  
-Cluster 3 shows consistently elevated levels across reactions, comments, shares, and likes—this cluster represents your truly top-performing content, engaging users in multiple ways and acting as a benchmark for future campaigns.  
-            """)
-
-            st.subheader("Feature Heatmap")
-            fig, ax = plt.subplots(figsize=(5,3))
-            sns.heatmap(centers.T, annot=True, cmap="YlOrRd", ax=ax)
-            ax.set_title("Feature Means Heatmap")
-            plt.tight_layout()
-            st.pyplot(fig)
-            st.markdown("The heatmap highlights which engagement features dominate each cluster.")
-
+            plt.close(fig)
+            # ...rest of your cluster analysis/plots...
         except Exception as e:
             st.error(f"Error during clustering or plotting: {e}")
-    custom_footer()
+        custom_footer()
 
+# -- Page 4: SHAP & LIME --
 elif page == "🤖 Explainable AI (SHAP & LIME)":
     if 'df' not in st.session_state or not st.session_state.get('submitted', False):
         st.warning("⚠️ Please upload and submit your data on the **Upload/Test Data** page first.")
+        custom_footer()
     else:
         st.header("Explainable AI with SHAP & LIME")
-        st.markdown("We train a RandomForest to mimic KMeans then explain with SHAP & LIME.")
         df = st.session_state['df']
         try:
             X = preprocess(df)
@@ -199,15 +170,13 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
 
             explainer = shap.TreeExplainer(rf)
             shap_values = explainer.shap_values(sample)
-
             if isinstance(shap_values, list):
                 for idx, arr in enumerate(shap_values):
                     st.subheader(f"SHAP Summary for Cluster {idx}")
                     fig, ax = plt.subplots(figsize=(5, 2.2))
                     shap.summary_plot(arr, sample, feature_names=feature_cols, show=False)
                     st.pyplot(fig)
-                    plt.clf()
-                    st.markdown(f"Cluster **{idx}** is driven primarily by the above features (red = positive, blue = negative).")
+                    plt.close(fig)
             else:
                 for class_idx in range(shap_values.shape[2]):
                     st.subheader(f"SHAP Summary for Cluster {class_idx}")
@@ -219,8 +188,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
                         show=False
                     )
                     st.pyplot(fig)
-                    plt.clf()
-                    st.markdown(f"Cluster **{class_idx}** is driven primarily by the above features (red = positive, blue = negative).")
+                    plt.close(fig)
 
             st.markdown("---")
             st.subheader("Local Explainability (LIME)")
@@ -232,19 +200,16 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
                 discretize_continuous=True
             )
             exp = lime_exp.explain_instance(sample.values[idx], rf.predict_proba, num_features=5)
-
             if exp.as_list():
                 fig = exp.as_pyplot_figure()
                 fig.set_size_inches(5, 2.2)
-                plt.tight_layout()
                 st.pyplot(fig)
-                st.markdown("This shows why that single post was assigned to its cluster based on its feature values.")
+                plt.close(fig)
             else:
-                st.warning("⚠️ LIME couldn't generate a valid explanation for this sample. Try selecting a different index.")
-
+                st.warning("⚠️ LIME couldn't generate a valid explanation for this sample. Try a different index.")
         except Exception as e:
             st.error(f"Error in SHAP/LIME analysis: {e}")
-    custom_footer()
+        custom_footer()
 
 elif page == "📈 Business Insights & Recommendations":
     st.title("Business Insights & Recommendations")
