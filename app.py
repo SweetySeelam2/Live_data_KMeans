@@ -210,7 +210,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         )
         exp = explainer.explain_instance(X.values[row], clf.predict_proba, num_features=6)
         fig = exp.as_pyplot_figure()
-        fig.set_size_inches(6, 4)
+        fig.set_size_inches(10, 8)
         st.image(fig_to_image(fig), caption="LIME Explanation", width=500)
         st.markdown("""
         #### 📌 LIME Explanation Details:
