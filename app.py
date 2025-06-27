@@ -81,24 +81,28 @@ if page == "📖 Project Overview":
 
 # --- Page 2 ---
 elif page == "📄 Upload/Test Data":
-    st.title("Upload Your Data or Use Demo Sample")
-    st.info("CSV must match expected format.")
+    st.title("Load Demo Sample Only")
+    st.info("Demo data is auto-formatted. Upload removed for consistency.")
 
-    choice = st.selectbox("Need a demo CSV?", ["", "Yes - Show format", "Yes - Load sample"])
+    choice = st.selectbox("Load sample data?", ["", "Yes - Show format", "Yes - Load sample"])
 
     if choice == "Yes - Show format":
         st.code(', '.join(feature_cols))
 
     elif choice == "Yes - Load sample":
         demo_df = load_demo()
+        demo_df['status_type'] = demo_df['status_type'].map({0: 'Photo', 1: 'Status', 2: 'Link', 3: 'Video'})
         st.session_state.df = demo_df.copy()
-        st.dataframe(st.session_state.df.head())
+        st.markdown("""
+        #### 📂 What is this demo data?
+        This sample dataset consists of 7,000+ real Facebook posts collected from multiple business pages. Each post includes:
+        - **Status type** (Photo, Video, Link, Status)
+        - **Engagement metrics**: Reactions, comments, shares, and all reaction types (`likes`, `loves`, `hahas`, etc.)
 
-    uploaded = st.file_uploader("Upload your CSV", type=["csv"])
-    if uploaded:
-        df = pd.read_csv(uploaded)
-        st.session_state.df = df.copy()
-        st.dataframe(df.head())
+        #### 📋 Preview Sample (First 20 Rows)
+        The table below shows a subset of the full dataset. Use it to understand what kind of data is analyzed throughout the app.
+        """)
+        st.dataframe(demo_df.head(20))
 
     if st.session_state.get("df") is not None:
         st.success("Data loaded! Proceed to clustering in Page 3.")
@@ -115,17 +119,24 @@ elif page == "📊 KMeans Clustering & Visuals":
         st.session_state.clustered_df = df.copy()
 
         st.subheader("Cluster Sizes")
-        fig, ax = plt.subplots(figsize=(6, 4))
+        fig, ax = plt.subplots()
         sns.countplot(x='cluster', data=df, ax=ax)
-        st.pyplot(fig)
+        st.image(fig_to_image(fig), caption="Cluster Sizes", width=500)
         st.markdown("""
-        This bar chart shows how many posts fall into each behavioral cluster. Some clusters may represent viral content, others underperformers.
+        #### 📌 Interpretation:
+        Each bar in this chart represents a distinct **cluster** of posts grouped based on their engagement behavior.
+        - A **larger bar** means more posts share similar traits (e.g., high reactions or low comments).
+        - Marketers can identify which clusters contain **top-performing vs. underperforming** content types.
         """)
 
         st.subheader("Cluster Feature Averages")
         st.dataframe(df.groupby('cluster')[feature_cols].mean())
         st.markdown("""
-        This breakdown reveals dominant traits per cluster. For example, if Cluster 3 has the highest `num_shares`, it's likely the most viral.
+        #### 📌 Insights from Cluster Averages:
+        This numeric table helps uncover the **personality of each cluster**.
+        - Clusters with higher `num_loves` or `num_shares` likely correspond to **viral or emotionally resonant posts**.
+        - Clusters with low `num_comments` or `num_angrys` may indicate **neutral or unnoticed content**.
+        Use these patterns to **reverse-engineer successful content strategies**.
         """)
     else:
         st.warning("Upload or use demo data from Page 2 first.")
@@ -145,11 +156,15 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
 
         st.subheader("SHAP Summary Plot")
         shap_values = shap.TreeExplainer(clf).shap_values(X)
-        fig, ax = plt.subplots(figsize=(6, 4))
         shap.summary_plot(shap_values, X, show=False)
-        st.pyplot(fig)
+        st.pyplot(bbox_inches='tight')
         st.markdown("""
-        SHAP identifies which features are most responsible for cluster assignments. This enables transparent decision-making for marketers.
+        #### 📌 How to Read This Plot:
+        - **X-axis** shows the impact of a feature on the model’s prediction — the farther from center, the stronger the effect.
+        - **Color** indicates whether the feature was high (red) or low (blue) for that observation.
+        - For example, if high `num_shares` pushes many posts into Cluster 3, this signals virality.
+
+        ✅ Use this to **audit which features drive specific content types** and guide content creation accordingly.
         """)
 
         st.subheader("LIME Explanation")
@@ -157,10 +172,13 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         explainer = LimeTabularExplainer(X.values, feature_names=feature_cols, class_names=[str(c) for c in np.unique(y)], discretize_continuous=True)
         exp = explainer.explain_instance(X.values[row], clf.predict_proba, num_features=6)
         fig = exp.as_pyplot_figure()
-        fig.set_size_inches(6, 4)
-        st.pyplot(fig)
+        st.image(fig_to_image(fig), caption="LIME Explanation", width=500)
         st.markdown("""
-        LIME explains this individual prediction using feature contributions. This helps understand what pushes a post into a specific group.
+        #### 📌 LIME Explanation Details:
+        The below plot explains **why a single post** was assigned to a specific cluster:
+        - Positive values **push** the prediction towards the selected cluster.
+        - Negative values **pull** it away.
+        - This fine-grained local interpretability makes it easier for marketers to **debug or justify classification outcomes**.
         """)
     else:
         st.warning("Run clustering from Page 3 first.")
@@ -196,6 +214,17 @@ elif page == "📈 Business Insights & Recommendations":
     - **Deliver highly targeted experiences**
 
     📅 This app delivers both **technical power** and **business clarity**, offering a real-world edge for enterprise content teams.
+
+    > 💡 This AI-powered system transforms guesswork into data-driven marketing.
+    > It enables **personalized, cost-effective, profitable content campaigns.**
     """)
     custom_footer()
+
+# --- Utility Function to Convert Plots to Images ---
+def fig_to_image(fig):
+    import io
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight")
+    buf.seek(0)
+    return buf
 
