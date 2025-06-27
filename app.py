@@ -6,11 +6,21 @@ import seaborn as sns
 import shap
 from lime.lime_tabular import LimeTabularExplainer
 import joblib
+import io
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 
+# --- Global encoder for consistent encoding
+label_encoder = LabelEncoder()
+
 st.set_page_config(page_title="FB Live Post Clustering & Explainability App", layout="wide")
-st.markdown("""<style>footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        footer {visibility: hidden;}
+        .block-container { padding-top: 1rem; padding-bottom: 1rem; }
+    </style>
+""", unsafe_allow_html=True)
+
 def custom_footer():
     st.markdown("""<div style='text-align:center; color:#888;'>📜 <b>Proprietary & All Rights Reserved</b> &copy; 2025 Sweety Seelam.</div>""", unsafe_allow_html=True)
 
@@ -30,7 +40,12 @@ feature_cols = [
 
 @st.cache_resource
 def load_models():
-    return joblib.load("kmeans_model.pkl"), joblib.load("rf_classifier.pkl"), joblib.load("scaler.pkl")
+    try:
+        return joblib.load("kmeans_model.pkl"), joblib.load("rf_classifier.pkl"), joblib.load("scaler.pkl")
+    except Exception as e:
+        st.error(f"❌ Model loading failed: {e}")
+        st.stop()
+
 kmeans, rf_model, scaler = load_models()
 
 @st.cache_data
@@ -41,9 +56,16 @@ def load_demo():
 def preprocess(df):
     df = df.copy()
     if not pd.api.types.is_numeric_dtype(df['status_type']):
-        df['status_type'] = LabelEncoder().fit_transform(df['status_type'].astype(str))
+        df['status_type'] = label_encoder.fit_transform(df['status_type'].astype(str))
     X_scaled = scaler.transform(df[feature_cols])
     return pd.DataFrame(X_scaled, columns=feature_cols)
+
+# --- Utility Function to Convert Plots to Images ---
+def fig_to_image(fig):
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight")
+    buf.seek(0)
+    return buf
 
 # --- Page 1 ---
 if page == "📖 Project Overview":
@@ -105,7 +127,7 @@ elif page == "📄 Upload/Test Data":
         st.dataframe(demo_df.head(20))
 
     if st.session_state.get("df") is not None:
-        st.success("Data loaded! Proceed to clustering in Page 3.")
+        st.success("✅ Data loaded! Proceed to clustering in Page 3.")
     custom_footer()
 
 # --- Page 3 ---
@@ -114,6 +136,10 @@ elif page == "📊 KMeans Clustering & Visuals":
 
     if st.session_state.get("df") is not None:
         df = st.session_state.df.copy()
+
+        if 'status_type' in df.columns and df['status_type'].dtype == 'object':
+            df['status_type'] = label_encoder.fit_transform(df['status_type'])
+
         df_proc = preprocess(df)
         df['cluster'] = kmeans.predict(df_proc)
         st.session_state.clustered_df = df.copy()
@@ -121,7 +147,9 @@ elif page == "📊 KMeans Clustering & Visuals":
         st.subheader("Cluster Sizes")
         fig, ax = plt.subplots()
         sns.countplot(x='cluster', data=df, ax=ax)
+        fig.tight_layout()
         st.image(fig_to_image(fig), caption="Cluster Sizes", width=500)
+
         st.markdown("""
         #### 📌 Interpretation:
         Each bar in this chart represents a distinct **cluster** of posts grouped based on their engagement behavior.
@@ -139,7 +167,7 @@ elif page == "📊 KMeans Clustering & Visuals":
         Use these patterns to **reverse-engineer successful content strategies**.
         """)
     else:
-        st.warning("Upload or use demo data from Page 2 first.")
+        st.warning("❗ Upload or use demo data from Page 2 first.")
     custom_footer()
 
 # --- Page 4 ---
@@ -148,30 +176,41 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
 
     if st.session_state.get("clustered_df") is not None:
         df = st.session_state.clustered_df.copy()
+
+        if 'status_type' in df.columns and df['status_type'].dtype == 'object':
+            df['status_type'] = label_encoder.fit_transform(df['status_type'])
+
         X = df[feature_cols]
         y = df['cluster']
 
         clf = RandomForestClassifier()
-        clf.fit(X, y)
+        clf.fit(X.values, y.values)
 
         st.subheader("SHAP Summary Plot")
-        shap_values = shap.TreeExplainer(clf).shap_values(X)
-        shap.summary_plot(shap_values, X, show=False)
+        shap_values = shap.TreeExplainer(clf).shap_values(X.values)
+        shap.summary_plot(shap_values, X.values, feature_names=feature_cols, show=False)
+        fig = plt.gcf()
+        fig.set_size_inches(6, 4)
         st.pyplot(bbox_inches='tight')
+
         st.markdown("""
         #### 📌 How to Read This Plot:
         - **X-axis** shows the impact of a feature on the model’s prediction — the farther from center, the stronger the effect.
         - **Color** indicates whether the feature was high (red) or low (blue) for that observation.
         - For example, if high `num_shares` pushes many posts into Cluster 3, this signals virality.
-
-        ✅ Use this to **audit which features drive specific content types** and guide content creation accordingly.
         """)
 
         st.subheader("LIME Explanation")
         row = st.slider("Pick row to explain", 0, len(X)-1, 0)
-        explainer = LimeTabularExplainer(X.values, feature_names=feature_cols, class_names=[str(c) for c in np.unique(y)], discretize_continuous=True)
+        explainer = LimeTabularExplainer(
+            X.values,
+            feature_names=feature_cols,
+            class_names=[str(c) for c in np.unique(y)],
+            discretize_continuous=True
+        )
         exp = explainer.explain_instance(X.values[row], clf.predict_proba, num_features=6)
         fig = exp.as_pyplot_figure()
+        fig.set_size_inches(6, 4)
         st.image(fig_to_image(fig), caption="LIME Explanation", width=500)
         st.markdown("""
         #### 📌 LIME Explanation Details:
@@ -181,7 +220,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         - This fine-grained local interpretability makes it easier for marketers to **debug or justify classification outcomes**.
         """)
     else:
-        st.warning("Run clustering from Page 3 first.")
+        st.warning("❗ Run clustering from Page 3 first.")
     custom_footer()
 
 # --- Page 5 ---
@@ -219,12 +258,3 @@ elif page == "📈 Business Insights & Recommendations":
     > It enables **personalized, cost-effective, profitable content campaigns.**
     """)
     custom_footer()
-
-# --- Utility Function to Convert Plots to Images ---
-def fig_to_image(fig):
-    import io
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight")
-    buf.seek(0)
-    return buf
-
