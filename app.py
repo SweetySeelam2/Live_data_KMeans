@@ -198,7 +198,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         import matplotlib
         matplotlib.rcParams.update({'font.size': 11, 'figure.autolayout': True})
 
-        fig, ax = plt.subplots(figsize=(9, 5))  # Wider + taller plot
+        fig, ax = plt.subplots(figsize=(7, 4))  # Wider + taller plot
 
         # SHAP summary plot
         shap.summary_plot(
@@ -255,7 +255,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         fig = exp.as_pyplot_figure()
 
         # Bigger plot and font
-        fig.set_size_inches(9, 5)
+        fig.set_size_inches(7, 4)
         plt.rcParams.update({'font.size': 12})
         plt.tight_layout()
 
