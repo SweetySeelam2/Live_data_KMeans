@@ -192,12 +192,13 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
 
         # SHAP Summary Plot
         st.subheader("SHAP Summary Plot")
+
         shap_values = shap.TreeExplainer(clf).shap_values(X)
 
-        # Set plot style & fix axis/labels/font
-        plt.rcParams.update({'font.size': 11})
-        fig, ax = plt.subplots(figsize=(9, 5))  # Wider + taller
+        # Set SHAP-specific font & size
+        plt.rcParams.update({'font.size': 12})
 
+        # Plot SHAP summary using SHAP’s built-in styling
         shap.summary_plot(
             shap_values, X,
             feature_names=feature_cols,
@@ -205,12 +206,13 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
             show=False
         )
 
-        plt.title("SHAP Summary (Global Feature Impact)", fontsize=14)
-        plt.xlabel("SHAP Value (Impact on Cluster Prediction)", fontsize=11)
+        # Resize the figure properly after SHAP renders
+        fig = plt.gcf()
+        fig.set_size_inches(10, 4.5)
         plt.tight_layout()
-        st.pyplot(plt.gcf())
 
-        # SHAP Interpretation
+        st.pyplot(fig)  # Show plot properly inside Streamlit
+
         st.markdown("""
         #### 📌 How to Read the SHAP Summary Plot
 
