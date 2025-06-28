@@ -170,40 +170,47 @@ elif page == "📊 KMeans Clustering & Visuals":
         st.warning("❗ Upload or use demo data from Page 2 first.")
     custom_footer()
 
-# --- Page 4 ---
-elif page == "🤖 Explainable AI (SHAP & LIME)": 
+# --- Page 4: Explainable AI (SHAP & LIME) ---
+elif page == "🤖 Explainable AI (SHAP & LIME)":
     st.title("Explainable AI for Clustering")
 
     if st.session_state.get("clustered_df") is not None:
         df = st.session_state.clustered_df.copy()
 
+        # Label encode if needed
         if 'status_type' in df.columns and df['status_type'].dtype == 'object':
             le = LabelEncoder()
             df['status_type'] = le.fit_transform(df['status_type'])
 
+        # Features & target
         X = df[feature_cols]
         y = df['cluster']
 
+        # Fit model
         clf = RandomForestClassifier()
         clf.fit(X.values, y.values)
 
+        # SHAP Summary Plot
         st.subheader("SHAP Summary Plot")
-        shap_values = shap.TreeExplainer(clf).shap_values(X.values)
+        shap_values = shap.TreeExplainer(clf).shap_values(X)
 
-        import matplotlib
-        matplotlib.rcParams.update({'font.size': 10})
+        # Set plot style & fix axis/labels/font
+        plt.rcParams.update({'font.size': 11})
+        fig, ax = plt.subplots(figsize=(9, 5))  # Wider + taller
 
         shap.summary_plot(
-            shap_values, X.values,
+            shap_values, X,
             feature_names=feature_cols,
-            plot_type='dot',
+            plot_type="dot",
             show=False
         )
-        fig = plt.gcf()
-        fig.set_size_inches(7, 3.5)
-        plt.tight_layout()
-        st.pyplot(fig)
 
+        plt.title("SHAP Summary (Global Feature Impact)", fontsize=14)
+        plt.xlabel("SHAP Value (Impact on Cluster Prediction)", fontsize=11)
+        plt.tight_layout()
+        st.pyplot(plt.gcf())
+
+        # SHAP Interpretation
         st.markdown("""
         #### 📌 How to Read the SHAP Summary Plot
 
@@ -225,18 +232,28 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         🔍 This plot gives you **global interpretability**—a bird’s-eye view of what drives cluster predictions across all posts.
         """)
 
+        # LIME Explanation Section
         st.subheader("LIME Explanation")
-        row = st.slider("Pick row to explain", 0, len(X)-1, 0)
+
+        row = st.slider("Pick row to explain", 0, len(X) - 1, 0)
+
         explainer = LimeTabularExplainer(
             X.values,
             feature_names=feature_cols,
             class_names=[str(c) for c in np.unique(y)],
             discretize_continuous=True
         )
+
         exp = explainer.explain_instance(X.values[row], clf.predict_proba, num_features=6)
         fig = exp.as_pyplot_figure()
-        fig.set_size_inches(10, 6)
-        st.image(fig_to_image(fig), caption="LIME Explanation", width=500)
+
+        # Bigger plot and font
+        fig.set_size_inches(11, 7)
+        plt.rcParams.update({'font.size': 12})
+        plt.tight_layout()
+
+        st.pyplot(fig)
+        st.caption("LIME Explanation")
 
         st.markdown("""
         #### 📌 LIME Explanation Details:
