@@ -171,14 +171,15 @@ elif page == "📊 KMeans Clustering & Visuals":
     custom_footer()
 
 # --- Page 4 ---
-elif page == "🤖 Explainable AI (SHAP & LIME)":
+elif page == "🤖 Explainable AI (SHAP & LIME)": 
     st.title("Explainable AI for Clustering")
 
     if st.session_state.get("clustered_df") is not None:
         df = st.session_state.clustered_df.copy()
 
         if 'status_type' in df.columns and df['status_type'].dtype == 'object':
-            df['status_type'] = label_encoder.fit_transform(df['status_type'])
+            le = LabelEncoder()
+            df['status_type'] = le.fit_transform(df['status_type'])
 
         X = df[feature_cols]
         y = df['cluster']
@@ -188,16 +189,40 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
 
         st.subheader("SHAP Summary Plot")
         shap_values = shap.TreeExplainer(clf).shap_values(X.values)
-        shap.summary_plot(shap_values, X.values, feature_names=feature_cols, show=False)
+
+        import matplotlib
+        matplotlib.rcParams.update({'font.size': 10})
+
+        shap.summary_plot(
+            shap_values, X.values,
+            feature_names=feature_cols,
+            plot_type='dot',
+            show=False
+        )
         fig = plt.gcf()
-        fig.set_size_inches(6, 4)
-        st.pyplot(bbox_inches='tight')
+        fig.set_size_inches(7, 3.5)
+        plt.tight_layout()
+        st.pyplot(fig)
 
         st.markdown("""
-        #### 📌 How to Read This Plot:
-        - **X-axis** shows the impact of a feature on the model’s prediction — the farther from center, the stronger the effect.
-        - **Color** indicates whether the feature was high (red) or low (blue) for that observation.
-        - For example, if high `num_shares` pushes many posts into Cluster 3, this signals virality.
+        #### 📌 How to Read the SHAP Summary Plot
+
+        This SHAP summary plot explains which features are **most important** for predicting cluster assignment and **how they influence predictions**:
+
+        - **Y-Axis (Features)**: Lists features like `num_shares`, `num_reactions`, etc.
+        - **X-Axis (SHAP Value)**: Shows each feature's contribution to the cluster prediction.
+            - Negative SHAP value → pushes prediction **away** from a cluster.
+            - Positive SHAP value → pushes prediction **toward** a cluster.
+        - **Color**:
+            - 🔴 **Red** = higher feature value (e.g., high `num_shares`)
+            - 🔵 **Blue** = lower feature value
+
+        #### 💡 Key Takeaways:
+        - If `num_shares` has many bright red dots far to the right, it’s a **strong positive driver** for some clusters.
+        - `status_type` or `num_reactions` being high or low could **flip** the predicted cluster.
+        - Helps marketers understand **what kind of post traits** (like high love or angry reactions) **push a post into a certain group**.
+
+        🔍 This plot gives you **global interpretability**—a bird’s-eye view of what drives cluster predictions across all posts.
         """)
 
         st.subheader("LIME Explanation")
@@ -210,8 +235,9 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         )
         exp = explainer.explain_instance(X.values[row], clf.predict_proba, num_features=6)
         fig = exp.as_pyplot_figure()
-        fig.set_size_inches(10, 8)
+        fig.set_size_inches(10, 6)
         st.image(fig_to_image(fig), caption="LIME Explanation", width=500)
+
         st.markdown("""
         #### 📌 LIME Explanation Details:
         The below plot explains **why a single post** was assigned to a specific cluster:
@@ -221,6 +247,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         """)
     else:
         st.warning("❗ Run clustering from Page 3 first.")
+
     custom_footer()
 
 # --- Page 5 ---
