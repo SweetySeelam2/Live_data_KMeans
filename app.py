@@ -210,7 +210,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
 
         # Manual layout & label fixes
         plt.title("SHAP Summary (Global Feature Impact)", fontsize=14, pad=20)
-        plt.xlabel("SHAP Value (Impact on Cluster Prediction)", fontsize=11, labelpad=10)
+        # plt.xlabel("SHAP Value (Impact on Cluster Prediction)", fontsize=11, labelpad=10)
 
         # Force layout fix to avoid cutting off column names at the top
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # leave room for title and header labels
@@ -255,7 +255,7 @@ elif page == "🤖 Explainable AI (SHAP & LIME)":
         fig = exp.as_pyplot_figure()
 
         # Bigger plot and font
-        fig.set_size_inches(11, 7)
+        fig.set_size_inches(9, 5)
         plt.rcParams.update({'font.size': 12})
         plt.tight_layout()
 
